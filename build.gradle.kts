@@ -20,21 +20,24 @@ val flaskServer = pyDir.file("CAServer.py").asFile
 val os = org.gradle.internal.os.OperatingSystem.current()
 val pyCmd = if (os.isWindows) "python" else "python3"
 
+val localRoot = layout.projectDirectory
 
 //Venv stuff
 val venvPy = if (os.isWindows) {
-    pyDir.file("venv/Scripts/python.exe").asFile
+    localRoot.file("venv/Scripts/python.exe").asFile
 } else {
-    pyDir.file("venv/bin/python").asFile
+    localRoot.file("venv/bin/python").asFile
 }
+
+
 
 val pipPath = if (os.isWindows) {
-    pyDir.file("venv/Scripts/pip.exe").asFile
+    localRoot.file("venv/Scripts/pip.exe").asFile
 } else {
-    pyDir.file("venv/bin/pip").asFile
+    localRoot.file("venv/bin/pip").asFile
 }
 
-val localRoot = layout.projectDirectory
+
 
 val logsDir = localRoot.dir("flask").asFile
 val pidFile = logsDir.resolve("flask.pid")
@@ -43,13 +46,13 @@ val pidFile = logsDir.resolve("flask.pid")
 
 
 tasks.register<Exec>("setUpVenv") {
-    workingDir = pyDir.asFile
-
+    workingDir = localRoot.asFile
+    dependsOn("nukeVenv") // while testing
     doFirst {
         println("Setting up venv for: $os")
         if (venvPy.exists()) {
             println("Venv already exists - exiting task")
-            throw org.gradle.api.tasks.StopExecutionException()
+            throw StopExecutionException()
         } else {
             println("Setting up the venv")
         }
@@ -58,8 +61,18 @@ tasks.register<Exec>("setUpVenv") {
     commandLine(pyCmd, "-m", "venv", "venv")
 }
 
-tasks.register<Exec>("installVenvDependencies") {
+tasks.register<Exec>("upgradePip") {
+
     dependsOn("setUpVenv")
+    commandLine(
+        venvPy.absolutePath, "-m", "pip", "install", "--upgrade",
+        "pip", "setuptools", "wheel"
+    )
+}
+
+tasks.register<Exec>("installVenvDependencies") {
+    dependsOn("upgradePip")
+
     workingDir = pyDir.asFile
 
     doFirst {
@@ -79,7 +92,7 @@ tasks.register<Exec>("installVenvDependencies") {
     }
 }
 
-tasks.register("runFlask") {
+tasks.register("flaskRun") {
     group = "flask"
     description = "Run Flask server in background"
 
@@ -139,7 +152,7 @@ tasks.register("flaskStatus") {
     }
 }
 
-tasks.register("stopFlask") {
+tasks.register("flaskStop") {
     doLast {
         if (!pidFile.exists()) {
             println("No PID file. Nothing to stop.")
@@ -158,6 +171,38 @@ tasks.register("stopFlask") {
         }
     }
 }
+
+tasks.register("nukeVenv") {
+
+    val venvDir = localRoot.dir("venv")
+
+
+    doFirst {
+        //Checking if the client already has a venv
+        if (!venvDir.asFile.exists()) {
+            println("No venv found at ${venvDir.asFile}. Skipping deletion.")
+            return@doFirst
+        }
+        //if not, we detect the os they are on, and run different commands based on windows or unix. we need to change permissions, then delete the dir and its contents
+        println("Preparing to delete venv at ${venvDir.asFile}")
+
+        if (os.isWindows) {
+            println("Detected Windows — clearing read-only attributes.")
+            exec {
+                commandLine("powershell", "-Command",
+                    "attrib -r /s /d \"${venvDir.asFile}\\*\"; " +
+                            "Remove-Item -Recurse -Force \"${venvDir.asFile}\"")
+            }
+        } else {
+            println("Detected Unix-like OS — fixing permissions and deleting.")
+            exec {
+                commandLine("chmod", "-R", "u+w", venvDir.asFile.absolutePath)
+            }
+            delete(venvDir)
+        }
+    }
+}
+
 
 
 
