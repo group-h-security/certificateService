@@ -2,6 +2,8 @@
 venv/
 .env/
 
+.gradle
+
 # Python cache files
 __pycache__/
 *.py[cod]
