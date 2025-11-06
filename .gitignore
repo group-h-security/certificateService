@@ -1,0 +1,23 @@
+# Python virtual environment
+venv/
+.env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Logs
+*.log
+flask/*.out
+flask/*.err
+flask/*.pid
+
+# IDE / OS files
+.vscode/
+.idea/
+.DS_Store
+
+# Byte-compiled / temporary files
+*.pyc
+*.pyo
+*.pyd
