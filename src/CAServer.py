@@ -7,6 +7,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa, ec # The two key algo
 from cryptography.exceptions import InvalidSignature # for catching bad signatures
 from cryptography.hazmat.primitives.asymmetric import padding # Needed for verifying RSA keys
 from cryptography.hazmat.primitives import hashes # Hashing algo that CSRs use
+# For building certs
+from cryptography.hazmat.primitives import serialization
+from cryptography.x509 import CertificateBuilder
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -129,13 +133,53 @@ def sign():
     print(f"Key: {algo_desc}")
     print("===== END CSR =====\n", flush=True)
 
+    clientCert = printCert(csr)
+
     # Default response for now
-    return (f"CSR received\nSubject: {subject_str}\nCN: {cn}\nKey: {algo_desc}\n",
-            200, {"Content-Type": "text/plain"})
+    return (clientCert, 200, {"Content-Type": "application/x-pem-file"})
+
 
 
 ##################################
 
+def printCert(csr):
+    # opening the private key and the cert
+    with open("src/ca.key", "rb") as f: # rb = read mode - binary
+        keyData = f.read()
+    try:
+        caKey = serialization.load_pem_private_key(keyData, password=None)
+    except ValueError:
+        caKey = serialization.load_der_private_key(keyData, password=None)
+
+    with open("src/ca.crt", "rb") as f:
+        certData = f.read()
+    try:
+        caCert = x509.load_pem_x509_certificate(certData)
+    except ValueError:
+        caCert = x509.load_der_x509_certificate(certData)
+
+    # Build the client cert with the csr data
+    builder = (
+        CertificateBuilder()
+        .subject_name(csr.subject)
+        .issuer_name(caCert.subject)
+        .public_key(csr.public_key())
+        .serial_number(x509.random_serial_number())
+        .not_valid_before(datetime.utcnow())
+        .not_valid_after(datetime.utcnow() + timedelta(days=90))
+    )
+
+    # copy csr extensions if present
+    for ext in csr.extensions:
+        builder = builder.add_extension(ext.value, ext.critical)
+
+    new_cert = builder.sign(
+        private_key = caKey,
+        algorithm=hashes.SHA256()
+    )
+
+    cert_pem = new_cert.public_bytes(serialization.Encoding.PEM).decode()
+    return cert_pem
 
 @app.route("/messages/<int:msg_id>", methods=["GET"])
 def getMessage(msg_id):
