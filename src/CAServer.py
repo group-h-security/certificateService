@@ -1,6 +1,13 @@
 from flask import Flask
 from flask import jsonify
 from flask import request
+from cryptography import x509
+from cryptography.x509.oid import NameOID
+from cryptography.hazmat.primitives.asymmetric import rsa, ec # The two key algorithims we allow
+from cryptography.exceptions import InvalidSignature # for catching bad signatures
+from cryptography.hazmat.primitives.asymmetric import padding # Needed for verifying RSA keys
+from cryptography.hazmat.primitives import hashes # Hashing algo that CSRs use
+
 app = Flask(__name__)
 
 messages = [
@@ -34,6 +41,101 @@ def addMessage():
 
 	messages.append(new_msg)
 	return jsonify(new_msg), 201
+
+
+# The Main Script
+
+@app.route("/sign", methods=["POST"])
+def sign():
+
+    # First, we have to make sure a csr file actually came in with the post request
+    if "csr" not in request.files:
+        return ("Missing file field 'csr'\n", 400, {"Content-Type": "text/plain"})
+
+    # After enuring its present, we get the raw bytes from the file.
+    raw = request.files["csr"].read()
+
+    # CSRs are typically encoded in PEM so we try that first. If that fails, default to DER
+    try:
+        csr = x509.load_pem_x509_csr(raw)
+    except ValueError:
+        csr = x509.load_der_x509_csr(raw)
+
+    # Get the Subject + Common Name + Public Key from CSR
+    subject_str = csr.subject.rfc4514_string()
+    cn_attrs = csr.subject.get_attributes_for_oid(NameOID.COMMON_NAME)
+    cn = cn_attrs[0].value if cn_attrs else None
+    rqPublicKey = csr.public_key()
+
+    # === Key validation policy ===
+
+    # RSA: require >= 2048 bits
+    if isinstance(rqPublicKey, rsa.RSAPublicKey):
+        key_size = rqPublicKey.key_size
+        if key_size < 2048:
+            return (f"Rejected: RSA key too small ({key_size} bits). Require >= 2048.\n",
+                    400, {"Content-Type": "text/plain"})
+        algo_desc = f"RSA-{key_size}"
+
+    # EC: Only allow curves considered safe
+    elif isinstance(rqPublicKey, ec.EllipticCurvePublicKey):
+        curve_name = rqPublicKey.curve.name  # e.g. 'secp256r1'
+        allowed_curves = {"secp256r1", "secp384r1", "secp521r1"}
+        if curve_name not in allowed_curves:
+            return (f"Rejected: EC curve '{curve_name}' not allowed. "
+                    f"Allowed: {', '.join(sorted(allowed_curves))}.\n",
+                    400, {"Content-Type": "text/plain"})
+        algo_desc = f"EC-{curve_name}"
+
+    # Reject anything not RSA or EC
+    else:
+        return (f"Rejected: Unsupported public key type: {type(rqPublicKey).__name__}\n",
+                400, {"Content-Type": "text/plain"})
+    # === end key validation ===
+
+    # === private key validation ===
+
+    # Ensuring that the public key in the csr can correctly hash with the private key its signed with
+    try:
+        if isinstance(rqPublicKey, rsa.RSAPublicKey):
+            rqPublicKey.verify(
+                csr.signature,
+                csr.tbs_certrequest_bytes,
+                padding.PKCS1v15(),
+                csr.signature_hash_algorithm,
+            )
+
+        elif isinstance(rqPublicKey, ec.EllipticCurvePublicKey):
+            rqPublicKey.verify(
+                csr.signature,
+                csr.tbs_certrequest_bytes,
+                ec.ECDSA(csr.signature_hash_algorithm),
+            )
+
+    except InvalidSignature:
+        return ("Rejected: CSR signature invalid (does not match public key).\n",
+                           400, {"Content-Type": "text/plain"})
+
+   # === end private key validation ===
+
+    # Logging it all to the server
+    print("\n===== CSR RECEIVED =====")
+    try:
+        print(raw.decode("utf-8"))
+    except UnicodeDecodeError:
+        print(f"[binary CSR received: {len(raw)} bytes]")
+    print(f"Subject: {subject_str}")
+    print(f"Common Name (CN): {cn}")
+    print(f"Key: {algo_desc}")
+    print("===== END CSR =====\n", flush=True)
+
+    # Default response for now
+    return (f"CSR received\nSubject: {subject_str}\nCN: {cn}\nKey: {algo_desc}\n",
+            200, {"Content-Type": "text/plain"})
+
+
+##################################
+
 
 @app.route("/messages/<int:msg_id>", methods=["GET"])
 def getMessage(msg_id):
