@@ -21,7 +21,7 @@ val os = org.gradle.internal.os.OperatingSystem.current()
 val pyCmd = if (os.isWindows) "python" else "python3"
 
 val localRoot = layout.projectDirectory
-val testToD
+
 //Venv stuff
 val venvPy = if (os.isWindows) {
     localRoot.file("venv/Scripts/python.exe").asFile
