@@ -24,5 +24,5 @@ logs/*
 ./gradle/
 /.venv/
 
-intermediate.key
+
 /CertsAndKeys/PrivateKeys/root.key

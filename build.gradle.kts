@@ -39,8 +39,8 @@ val pipPath = if (os.isWindows) {
 
 
 
-val logsDir = localRoot.dir("flask").asFile
-val pidFile = logsDir.resolve("flask.pid")
+val logsDir = localRoot.dir("logs").asFile
+val pidFile = logsDir.resolve("logs.pid")
 
 
 

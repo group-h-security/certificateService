@@ -119,14 +119,14 @@ def sign():
 
 def printCert(csr):
     # opening the private key and the cert
-    with open("src/ca.key", "rb") as f: # rb = read mode - binary
+    with open("src/Root.key", "rb") as f: # rb = read mode - binary
         keyData = f.read()
     try:
         caKey = serialization.load_pem_private_key(keyData, password=None)
     except ValueError:
         caKey = serialization.load_der_private_key(keyData, password=None)
 
-    with open("src/ca.crt", "rb") as f:
+    with open("src/Intermediate.crt", "rb") as f:
         certData = f.read()
     try:
         caCert = x509.load_pem_x509_certificate(certData)
