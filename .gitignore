@@ -10,9 +10,7 @@ __pycache__/
 
 # Logs
 *.log
-flask/*.out
-flask/*.err
-flask/*.pid
+logs/*
 
 # IDE / OS files
 .vscode/
@@ -24,3 +22,7 @@ flask/*.pid
 *.pyo
 *.pyd
 ./gradle/
+/.venv/
+
+intermediate.key
+/CertsAndKeys/PrivateKeys/root.key

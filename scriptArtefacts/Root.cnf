@@ -1,0 +1,22 @@
+[req]
+distinguished_name = dn
+x509_extensions = v3_ca
+prompt = no
+
+[dn]
+C = IE
+O = Group-H Security
+CN = Group-H Root CA
+
+[CA_default]
+copy_extensions = none
+
+[v3_ca]
+# Must be valid or child certs are invalid, is a CA, can have one level of child.
+basicConstraints = critical,CA:true,pathlen:1
+# Key must be processed by verifiers, key can sign other certs, can sign key revoke lists to nullify certs
+keyUsage = critical,keyCertSign,cRLSign
+# Fingerprint on the public key using SHA of the cert
+subjectKeyIdentifier = hash
+# hash of issuer's public key - self signed in this case
+authorityKeyIdentifier = keyid:always,issuer
