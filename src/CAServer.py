@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from flask import Flask
 from flask import jsonify
 from flask import request
@@ -11,6 +13,13 @@ from cryptography.hazmat.primitives import hashes # Hashing algo that CSRs use
 from cryptography.hazmat.primitives import serialization
 from cryptography.x509 import CertificateBuilder
 from datetime import datetime, timedelta
+
+from jinja2.lexer import TOKEN_DOT
+
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+INTERMEDIATE_KEY = PROJECT_ROOT / "CertsAndKeys" / "PrivateKeys" / "intermediate.key"
+INTERMEDIATE_CERT = PROJECT_ROOT / "CertsAndKeys" / "Certificates" / "intermediate.crt"
 
 app = Flask(__name__)
 
@@ -110,23 +119,29 @@ def sign():
 
     clientCert = printCert(csr)
 
+    with open(INTERMEDIATE_CERT, "r") as f:
+        interPem = f.read()
+    chainPem = clientCert + "\n" + interPem
+
+
     # Default response for now
-    return (clientCert, 200, {"Content-Type": "application/x-pem-file"})
+    return (chainPem, 200, {"Content-Type": "application/x-pem-file"})
 
 
 
 ##################################
-
+# TODO
+# Make the constraints config for client certs we build
 def printCert(csr):
     # opening the private key and the cert
-    with open("src/Root.key", "rb") as f: # rb = read mode - binary
+    with open(INTERMEDIATE_KEY, "rb") as f: # rb = read mode - binary
         keyData = f.read()
     try:
         caKey = serialization.load_pem_private_key(keyData, password=None)
     except ValueError:
         caKey = serialization.load_der_private_key(keyData, password=None)
 
-    with open("src/Intermediate.crt", "rb") as f:
+    with open(INTERMEDIATE_CERT, "rb") as f:
         certData = f.read()
     try:
         caCert = x509.load_pem_x509_certificate(certData)
