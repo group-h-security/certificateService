@@ -1,6 +1,0 @@
-[submodule "client"]
-	url = https://github.com/group-h-security/client.git
-[submodule "certificateService"]
-	url = https://github.com/group-h-security/certificateService.git
-[submodule "server"]
-	branch = proto
