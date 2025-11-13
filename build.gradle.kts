@@ -1,5 +1,5 @@
 
-
+import java.net.Socket
 plugins {
 
 }
@@ -172,6 +172,36 @@ tasks.register("flaskStop") {
     }
 }
 
+tasks.register("waitForFlask") {
+    group = "infra"
+    description = "Wait until Flask is listening on 127.0.0.1:5000"
+
+    doLast {
+        val host = "127.0.0.1"
+        val port = 5000
+        val deadline = System.currentTimeMillis() + 60_000
+        var tries = 0
+
+        println("Waiting for Flask to start on $host:$port …")
+
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                Socket(host, port).use {
+                    println("✔ Flask is ready after $tries attempts!")
+                    return@doLast
+                }
+            } catch (e: Exception) {
+                tries++
+                println("Attempt $tries: Flask not ready yet (${e::class.simpleName})")
+                Thread.sleep(500)
+            }
+        }
+
+        throw RuntimeException("❌ Timed out after 60 seconds waiting for Flask")
+    }
+}
+
+
 tasks.register("nukeVenv") {
 
     val venvDir = localRoot.dir("venv")
@@ -202,6 +232,9 @@ tasks.register("nukeVenv") {
         }
     }
 }
+
+
+// certificateService/build.gradle.kts
 
 
 
