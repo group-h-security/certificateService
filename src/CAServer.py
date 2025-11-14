@@ -1,4 +1,3 @@
-import ssl
 from pathlib import Path
 
 from flask import Flask
@@ -22,29 +21,22 @@ PROJECT_ROOT = BASE_DIR.parent
 INTERMEDIATE_KEY = PROJECT_ROOT / "CertsAndKeys" / "PrivateKeys" / "intermediate.key"
 INTERMEDIATE_CERT = PROJECT_ROOT / "CertsAndKeys" / "Certificates" / "intermediate.crt"
 
-FLASK_KEY = PROJECT_ROOT / "CertsAndKeys" / "PrivateKeys" / "flask-server.key"
-FLASK_CHAIN = PROJECT_ROOT / "CertsAndKeys" / "Certificates" / "flask-server-chain.pem"
-
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return jsonify({
-        "status": "okay",
-        "message": "flask is running"
+	return jsonify({
+		"status": "okay",
+		"message": "flask is running"
 
-    })
+	})
 
 # The Main Script
 
 @app.route("/sign", methods=["POST"])
 def sign():
 
-    print("is_secure:", request.is_secure)
-    print("scheme:", request.scheme)
-
-
-# First, we have to make sure a csr file actually came in with the post request
+    # First, we have to make sure a csr file actually came in with the post request
     if "csr" not in request.files:
         return ("Missing file field 'csr'\n", 400, {"Content-Type": "text/plain"})
 
@@ -179,21 +171,6 @@ def printCert(csr):
     cert_pem = new_cert.public_bytes(serialization.Encoding.PEM).decode()
     return cert_pem
 
-def create_ssl_context() -> ssl.SSLContext:
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
-    context.load_cert_chain(
-        certfile=str(FLASK_CHAIN),
-        keyfile =str(FLASK_KEY),
-    )
-    return context
-
 if __name__ == "__main__":
-    ssl_context = create_ssl_context()
-    app.run(
-        host="0.0.0.0",
-        port=5000,
-        debug=True,
-        use_reloader=False,
-        ssl_context=ssl_context,
-    )
+    app.run(host="127.0.0.1", port=5000, debug=True, use_reloader=False)
 
