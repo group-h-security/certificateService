@@ -99,6 +99,7 @@ tasks.register("flaskRun") {
     dependsOn("installVenvDependencies")
 
     doLast {
+
         if (!venvPy.exists()) error("Missing venv: $venvPy")
         if (!flaskServer.exists()) error("Missing CAServer.py")
 
@@ -175,7 +176,7 @@ tasks.register("flaskStop") {
 tasks.register("waitForFlask") {
     group = "infra"
     description = "Wait until Flask is listening on 127.0.0.1:5000"
-
+    dependsOn("flaskRun")
     doLast {
         val host = "127.0.0.1"
         val port = 5000
