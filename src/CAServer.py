@@ -35,7 +35,6 @@ def home():
 
 @app.route("/sign", methods=["POST"])
 def sign():
-
     # First, we have to make sure a csr file actually came in with the post request
     if "csr" not in request.files:
         return ("Missing file field 'csr'\n", 400, {"Content-Type": "text/plain"})
