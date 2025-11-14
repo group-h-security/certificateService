@@ -1,0 +1,3 @@
+chat.ryansheridan.dev {
+    reverse_proxy flask-app:5000
+}
